@@ -1,0 +1,17 @@
+{
+  "eventId": "evt-pacs-001",
+  "sourceSystem": "PACS",
+  "messageType": "IMAGES_AVAILABLE",
+  "timestamp": "2026-05-21T15:23:00Z",
+  "accessionNumber": "ACC-10001",
+  "patient": {
+    "patientId": "PAT-9001",
+    "name": "SYNTHETIC^JANE",
+    "dateOfBirth": "1980-01-01"
+  },
+  "exam": {
+    "examCode": "CTHEADWO",
+    "examDescription": "CT Head Without Contrast",
+    "examStatus": "IMAGES_AVAILABLE"
+  }
+}

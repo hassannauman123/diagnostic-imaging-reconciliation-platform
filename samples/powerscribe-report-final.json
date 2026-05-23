@@ -1,0 +1,22 @@
+{
+  "eventId": "evt-ps-002",
+  "sourceSystem": "POWERSCRIBE",
+  "messageType": "REPORT_FINAL",
+  "timestamp": "2026-05-21T15:45:00Z",
+  "accessionNumber": "ACC-10001",
+  "patient": {
+    "patientId": "PAT-9001",
+    "name": "SYNTHETIC^JANE",
+    "dateOfBirth": "1980-01-01"
+  },
+  "exam": {
+    "examCode": "CTHEADWO",
+    "examDescription": "",
+    "examStatus": "COMPLETED"
+  },
+  "report": {
+    "reportStatus": "FINAL",
+    "finalizedBy": "SYNTHETIC_RAD_01",
+    "finalizedAt": "2026-05-21T15:44:00Z"
+  }
+}

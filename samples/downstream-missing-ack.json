@@ -1,0 +1,12 @@
+{
+  "eventId": "evt-downstream-001",
+  "sourceSystem": "DOWNSTREAM_SYSTEM",
+  "messageType": "ACK_STATUS",
+  "timestamp": "2026-05-21T16:05:00Z",
+  "accessionNumber": "ACC-10001",
+  "ack": {
+    "expected": true,
+    "received": false,
+    "targetSystem": "REPORT_DISTRIBUTION"
+  }
+}

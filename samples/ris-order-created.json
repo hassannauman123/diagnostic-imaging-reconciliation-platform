@@ -1,0 +1,17 @@
+{
+  "eventId": "evt-ris-001",
+  "sourceSystem": "RIS",
+  "messageType": "ORDER_CREATED",
+  "timestamp": "2026-05-21T15:20:00Z",
+  "accessionNumber": "ACC-10001",
+  "patient": {
+    "patientId": "PAT-9001",
+    "name": "SYNTHETIC^JANE",
+    "dateOfBirth": "1980-01-01"
+  },
+  "exam": {
+    "examCode": "CTHEADWO",
+    "examDescription": "CT Head Without Contrast",
+    "examStatus": "PENDING"
+  }
+}
