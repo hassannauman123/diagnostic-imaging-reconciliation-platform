@@ -108,6 +108,54 @@ Incidents
 - [MEDIUM] RULE_004_MISSING_DOWNSTREAM_ACK: Downstream acknowledgement missing
 ```
 
+## Phase 2 Local API
+
+Phase 2 wraps the same reconciliation logic in a local FastAPI service.
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Start the API from the project root:
+
+```bash
+uvicorn src.api.app:app --reload
+```
+
+Useful endpoints:
+
+- `GET /health`
+- `POST /events`
+- `GET /accessions/{accessionNumber}`
+- `GET /incidents`
+- `GET /events/{accessionNumber}`
+- `GET /failed-events`
+- `POST /reset`
+
+Example flow:
+
+```bash
+curl -X POST http://127.0.0.1:8000/reset
+
+curl -X POST http://127.0.0.1:8000/events \
+  -H "Content-Type: application/json" \
+  --data @samples/ris-order-created.json
+
+curl -X POST http://127.0.0.1:8000/events \
+  -H "Content-Type: application/json" \
+  --data @samples/powerscribe-report-started-blank-description.json
+
+curl http://127.0.0.1:8000/incidents
+```
+
+The interactive API docs are available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
 ## Privacy and Compliance Boundary
 
 This is a portfolio and learning project. It is healthcare-inspired, not a production healthcare system.
@@ -170,6 +218,6 @@ The project intentionally uses synthetic data only. It does not claim PHIA, HIPA
 
 ## Status
 
-Current phase: **Phase 1 local reconciliation engine complete**.
+Current phase: **Phase 2 local API complete**.
 
-Next planned phase: **Phase 2 local API**, after explicit approval.
+Next planned phase: **Phase 3 AWS ingestion layer**, after explicit approval.
