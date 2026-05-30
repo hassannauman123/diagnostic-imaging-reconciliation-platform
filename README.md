@@ -156,6 +156,29 @@ The interactive API docs are available at:
 http://127.0.0.1:8000/docs
 ```
 
+## Phase 3 AWS Ingestion
+
+Phase 3 adds the first AWS layer: API Gateway, ingest Lambda, S3 raw archive, SQS processing queue, failed-events queue, CloudWatch logs, and Terraform.
+
+Terraform files live in:
+
+```text
+infra/phase3/
+```
+
+Run Terraform from that folder, not from the empty top-level `infra/` folder:
+
+```bash
+cd infra/phase3
+terraform init
+terraform plan
+terraform apply
+```
+
+Phase 3 does not create EC2, VPC, NAT Gateway, DynamoDB, Step Functions, SNS, Cognito, or a dashboard.
+
+Detailed instructions are in `docs/phase-3-aws-ingestion.md`.
+
 ## Privacy and Compliance Boundary
 
 This is a portfolio and learning project. It is healthcare-inspired, not a production healthcare system.
@@ -218,6 +241,6 @@ The project intentionally uses synthetic data only. It does not claim PHIA, HIPA
 
 ## Status
 
-Current phase: **Phase 2 local API complete**.
+Current phase: **Phase 3 AWS ingestion layer ready for deployment**.
 
-Next planned phase: **Phase 3 AWS ingestion layer**, after explicit approval.
+Next planned phase: **Phase 4 AWS processing and DynamoDB**, after Phase 3 is deployed and verified.

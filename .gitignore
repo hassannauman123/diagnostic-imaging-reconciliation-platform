@@ -14,7 +14,8 @@ dist/
 .terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
+*.tfplan
+infra/phase3/ingest_lambda.zip
 
 # OS
 .DS_Store
