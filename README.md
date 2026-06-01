@@ -179,6 +179,8 @@ Phase 3 does not create EC2, VPC, NAT Gateway, DynamoDB, Step Functions, SNS, Co
 
 Detailed instructions are in `docs/phase-3-aws-ingestion.md`.
 
+Cost guardrails and a cost-focused architecture diagram are in `docs/phase-3-cost-guardrails.md`.
+
 ## Privacy and Compliance Boundary
 
 This is a portfolio and learning project. It is healthcare-inspired, not a production healthcare system.

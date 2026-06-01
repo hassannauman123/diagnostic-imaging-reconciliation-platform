@@ -28,3 +28,20 @@ variable "raw_event_retention_days" {
   default     = 30
 }
 
+variable "ingest_lambda_reserved_concurrency" {
+  description = "Maximum concurrent executions allowed for the ingest Lambda."
+  type        = number
+  default     = 2
+}
+
+variable "api_throttle_burst_limit" {
+  description = "Short burst request limit for the HTTP API default stage."
+  type        = number
+  default     = 5
+}
+
+variable "api_throttle_rate_limit" {
+  description = "Steady-state requests per second limit for the HTTP API default stage."
+  type        = number
+  default     = 2
+}

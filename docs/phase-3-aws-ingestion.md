@@ -86,6 +86,8 @@ Phase 3 is designed to stay low cost:
 - CloudWatch logs retained for 7 days by default
 - raw S3 sample events expire after 30 days by default
 - Lambda runs only when called
+- API Gateway throttling limits request bursts
+- Lambda reserved concurrency caps concurrent ingest executions
 
 Create an AWS Budget alert before deploying if this is your first AWS hands-on project.
 
@@ -95,6 +97,8 @@ Recommended budget:
 Monthly budget: $5 or $10
 Alerts: 50%, 80%, 100%
 ```
+
+See `docs/phase-3-cost-guardrails.md` for a cost-focused diagram and resource-by-resource cost notes.
 
 ## Deploy
 

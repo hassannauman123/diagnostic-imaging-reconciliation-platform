@@ -176,14 +176,15 @@ resource "aws_cloudwatch_log_group" "ingest_lambda" {
 }
 
 resource "aws_lambda_function" "ingest" {
-  function_name    = "${local.name_prefix}-ingest"
-  role             = aws_iam_role.ingest_lambda.arn
-  handler          = "handler.lambda_handler"
-  runtime          = "python3.11"
-  filename         = data.archive_file.ingest_lambda.output_path
-  source_code_hash = data.archive_file.ingest_lambda.output_base64sha256
-  timeout          = 10
-  memory_size      = 128
+  function_name                  = "${local.name_prefix}-ingest"
+  role                           = aws_iam_role.ingest_lambda.arn
+  handler                        = "handler.lambda_handler"
+  runtime                        = "python3.11"
+  filename                       = data.archive_file.ingest_lambda.output_path
+  source_code_hash               = data.archive_file.ingest_lambda.output_base64sha256
+  timeout                        = 10
+  memory_size                    = 128
+  reserved_concurrent_executions = var.ingest_lambda_reserved_concurrency
 
   environment {
     variables = {
@@ -240,6 +241,11 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.ingestion.id
   name        = "$default"
   auto_deploy = true
+
+  default_route_settings {
+    throttling_burst_limit = var.api_throttle_burst_limit
+    throttling_rate_limit  = var.api_throttle_rate_limit
+  }
 
   tags = {
     Project     = var.project_name
