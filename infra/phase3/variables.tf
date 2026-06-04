@@ -29,9 +29,9 @@ variable "raw_event_retention_days" {
 }
 
 variable "ingest_lambda_reserved_concurrency" {
-  description = "Maximum concurrent executions allowed for the ingest Lambda."
+  description = "Maximum concurrent executions allowed for the ingest Lambda. Use -1 to disable reserved concurrency for low-quota accounts."
   type        = number
-  default     = 2
+  default     = -1
 }
 
 variable "api_throttle_burst_limit" {

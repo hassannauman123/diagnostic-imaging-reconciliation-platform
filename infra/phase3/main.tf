@@ -3,8 +3,9 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  name_prefix = "${var.project_name}-${var.environment}"
-  bucket_name = lower("${local.name_prefix}-raw-${data.aws_caller_identity.current.account_id}-${var.aws_region}")
+  name_prefix                 = "${var.project_name}-${var.environment}"
+  bucket_name                 = lower("${local.name_prefix}-raw-${data.aws_caller_identity.current.account_id}-${var.aws_region}")
+  lambda_reserved_concurrency = var.ingest_lambda_reserved_concurrency >= 0 ? var.ingest_lambda_reserved_concurrency : null
 }
 
 resource "aws_s3_bucket" "raw_events" {
@@ -184,7 +185,7 @@ resource "aws_lambda_function" "ingest" {
   source_code_hash               = data.archive_file.ingest_lambda.output_base64sha256
   timeout                        = 10
   memory_size                    = 128
-  reserved_concurrent_executions = var.ingest_lambda_reserved_concurrency
+  reserved_concurrent_executions = local.lambda_reserved_concurrency
 
   environment {
     variables = {

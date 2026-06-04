@@ -87,7 +87,7 @@ Phase 3 is designed to stay low cost:
 - raw S3 sample events expire after 30 days by default
 - Lambda runs only when called
 - API Gateway throttling limits request bursts
-- Lambda reserved concurrency caps concurrent ingest executions
+- Lambda reserved concurrency is disabled by default for low-quota accounts, but can be enabled with a Terraform variable after a quota increase
 
 Create an AWS Budget alert before deploying if this is your first AWS hands-on project.
 

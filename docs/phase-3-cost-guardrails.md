@@ -14,7 +14,7 @@ flowchart TD
 
     Api["API Gateway HTTP API<br/>Usage-based: paid per request<br/>Guardrail: burst 5, rate 2 req/sec"]
 
-    Lambda["Ingest Lambda<br/>Usage-based: invocations + runtime<br/>Guardrail: 128 MB, 10s timeout, concurrency 2"]
+    Lambda["Ingest Lambda<br/>Usage-based: invocations + runtime<br/>Guardrail: 128 MB, 10s timeout<br/>Reserved concurrency disabled by default for low-quota accounts"]
 
     S3["S3 Raw Event Bucket<br/>Usage-based: tiny JSON storage + requests<br/>Guardrail: private, encrypted, expires raw-events after 30 days"]
 
@@ -55,7 +55,7 @@ These can cost money when used:
 | Resource | What Creates Cost | Current Guardrail |
 |---|---|---|
 | API Gateway HTTP API | Incoming HTTP requests | Default stage throttled to burst `5`, rate `2` requests/sec |
-| Lambda | Invocations, runtime, memory | `128 MB`, `10s` timeout, reserved concurrency `2` |
+| Lambda | Invocations, runtime, memory | `128 MB`, `10s` timeout; reserved concurrency can be enabled if the account quota supports it |
 | S3 raw archive | Object storage and requests | Private bucket, raw events expire after `30` days |
 | SQS queues | Queue API requests and retained messages | Standard queues, small test messages only |
 | CloudWatch Logs | Log ingestion and storage | Log retention `7` days |
@@ -78,10 +78,20 @@ This means the API is not intended to accept high request volume. Manual testing
 Terraform sets:
 
 ```text
-ingest_lambda_reserved_concurrency = 2
+ingest_lambda_reserved_concurrency = -1
 ```
 
-This caps the ingest Lambda to two concurrent executions. If something accidentally sends many requests, Lambda cannot scale this function without limit.
+This disables reserved concurrency by default. Some new AWS accounts have a Lambda concurrency quota too low to reserve function-level concurrency while keeping AWS's required unreserved pool. In that case, trying to reserve concurrency causes this AWS error:
+
+```text
+Specified ReservedConcurrentExecutions for function decreases account's UnreservedConcurrentExecution below its minimum value of [10].
+```
+
+If your Lambda account concurrency quota is raised later, you can enable the cap with:
+
+```bash
+terraform apply -var="ingest_lambda_reserved_concurrency=2"
+```
 
 ### Log Retention
 
@@ -111,7 +121,7 @@ The Phase 3 API endpoint has no authentication yet:
 authorization_type = "NONE"
 ```
 
-That is acceptable for a short local learning test, but do not post the endpoint publicly. The throttling and Lambda concurrency cap reduce risk if the endpoint is accidentally called too much.
+That is acceptable for a short local learning test, but do not post the endpoint publicly. API Gateway throttling reduces request volume risk if the endpoint is accidentally called too much.
 
 Authentication is intentionally deferred because Cognito/dashboard protection is a later phase.
 
@@ -124,4 +134,3 @@ terraform -chdir=infra/phase3 destroy
 ```
 
 This is the strongest cost control. If the resources are destroyed, they cannot keep receiving requests or storing new logs/messages.
-
