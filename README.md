@@ -218,6 +218,51 @@ aws dynamodb get-item \
 
 Detailed instructions are in `docs/phase-4-aws-processing-dynamodb.md`.
 
+## Phase 5 AWS Reconciliation Workflow
+
+Phase 5 runs reconciliation inside AWS.
+
+After the processor Lambda writes current state to DynamoDB, it starts a Step Functions workflow. The workflow invokes a reconciliation Lambda that:
+
+- loads current state for the accession number from DynamoDB
+- applies the shared reconciliation rules
+- writes incidents to DynamoDB `ReconciliationIncidents`
+- publishes `HIGH` and `CRITICAL` incidents to SNS
+
+Deploy from the same Terraform folder:
+
+```bash
+cd infra/phase3
+terraform plan
+terraform apply
+```
+
+Example test:
+
+```bash
+export EVENTS_ENDPOINT="$(terraform -chdir=infra/phase3 output -raw events_endpoint)"
+
+curl -X POST "$EVENTS_ENDPOINT" \
+  -H "Content-Type: application/json" \
+  --data @samples/ris-order-created.json
+
+curl -X POST "$EVENTS_ENDPOINT" \
+  -H "Content-Type: application/json" \
+  --data @samples/powerscribe-report-started-blank-description.json
+```
+
+Then query incidents:
+
+```bash
+aws dynamodb query \
+  --table-name "$(terraform -chdir=infra/phase3 output -raw reconciliation_incidents_table_name)" \
+  --index-name accessionNumber-createdAt-index \
+  --key-condition-expression "accessionNumber = :accession" \
+  --expression-attribute-values '{":accession":{"S":"ACC-10001"}}'
+```
+
+Detailed instructions are in `docs/phase-5-aws-reconciliation-workflow.md`.
+
 ## Privacy and Compliance Boundary
 
 This is a portfolio and learning project. It is healthcare-inspired, not a production healthcare system.
@@ -280,6 +325,6 @@ The project intentionally uses synthetic data only. It does not claim PHIA, HIPA
 
 ## Status
 
-Current phase: **Phase 4 AWS processing and DynamoDB implementation**.
+Current phase: **Phase 5 AWS reconciliation workflow implementation**.
 
-Next planned phase: **Phase 5 AWS reconciliation workflow**, after Phase 4 is deployed and verified.
+Next planned phase: **Phase 6 dashboard MVP**, after Phase 5 is deployed and verified.

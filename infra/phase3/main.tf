@@ -122,6 +122,36 @@ data "archive_file" "processor_lambda" {
   }
 }
 
+data "archive_file" "reconciliation_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/reconciliation_lambda.zip"
+
+  source {
+    filename = "handler.py"
+    content  = file("${path.module}/../../src/aws/reconciliation_lambda/handler.py")
+  }
+
+  source {
+    filename = "shared/__init__.py"
+    content  = file("${path.module}/../../src/shared/__init__.py")
+  }
+
+  source {
+    filename = "shared/incident_builder.py"
+    content  = file("${path.module}/../../src/shared/incident_builder.py")
+  }
+
+  source {
+    filename = "shared/models.py"
+    content  = file("${path.module}/../../src/shared/models.py")
+  }
+
+  source {
+    filename = "shared/rules.py"
+    content  = file("${path.module}/../../src/shared/rules.py")
+  }
+}
+
 resource "aws_iam_role" "ingest_lambda" {
   name = "${local.name_prefix}-ingest-lambda-role"
 
@@ -319,6 +349,217 @@ resource "aws_dynamodb_table" "event_history" {
   }
 }
 
+resource "aws_dynamodb_table" "reconciliation_incidents" {
+  name         = "${local.name_prefix}-reconciliation-incidents"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "incidentId"
+
+  attribute {
+    name = "incidentId"
+    type = "S"
+  }
+
+  attribute {
+    name = "accessionNumber"
+    type = "S"
+  }
+
+  attribute {
+    name = "createdAt"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "accessionNumber-createdAt-index"
+    hash_key        = "accessionNumber"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = false
+  }
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Phase       = "5"
+  }
+}
+
+resource "aws_sns_topic" "reconciliation_alerts" {
+  name = "${local.name_prefix}-reconciliation-alerts"
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Phase       = "5"
+  }
+}
+
+resource "aws_iam_role" "reconciliation_lambda" {
+  name = "${local.name_prefix}-reconciliation-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "reconciliation_lambda" {
+  name = "${local.name_prefix}-reconciliation-lambda-policy"
+  role = aws_iam_role.reconciliation_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "${aws_cloudwatch_log_group.reconciliation_lambda.arn}:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Query"
+        ]
+        Resource = aws_dynamodb_table.exam_system_state.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:UpdateItem",
+          "dynamodb:PutItem"
+        ]
+        Resource = aws_dynamodb_table.reconciliation_incidents.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sns:Publish"
+        ]
+        Resource = aws_sns_topic.reconciliation_alerts.arn
+      }
+    ]
+  })
+}
+
+resource "aws_cloudwatch_log_group" "reconciliation_lambda" {
+  name              = "/aws/lambda/${local.name_prefix}-reconciliation"
+  retention_in_days = var.log_retention_days
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Phase       = "5"
+  }
+}
+
+resource "aws_lambda_function" "reconciliation" {
+  function_name    = "${local.name_prefix}-reconciliation"
+  role             = aws_iam_role.reconciliation_lambda.arn
+  handler          = "handler.lambda_handler"
+  runtime          = "python3.11"
+  filename         = data.archive_file.reconciliation_lambda.output_path
+  source_code_hash = data.archive_file.reconciliation_lambda.output_base64sha256
+  timeout          = 10
+  memory_size      = 128
+
+  environment {
+    variables = {
+      STATE_TABLE_NAME     = aws_dynamodb_table.exam_system_state.name
+      INCIDENTS_TABLE_NAME = aws_dynamodb_table.reconciliation_incidents.name
+      ALERT_TOPIC_ARN      = aws_sns_topic.reconciliation_alerts.arn
+      ENVIRONMENT          = var.environment
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy.reconciliation_lambda,
+    aws_cloudwatch_log_group.reconciliation_lambda
+  ]
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Phase       = "5"
+  }
+}
+
+resource "aws_iam_role" "reconciliation_state_machine" {
+  name = "${local.name_prefix}-reconciliation-sfn-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "states.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "reconciliation_state_machine" {
+  name = "${local.name_prefix}-reconciliation-sfn-policy"
+  role = aws_iam_role.reconciliation_state_machine.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        Resource = aws_lambda_function.reconciliation.arn
+      }
+    ]
+  })
+}
+
+resource "aws_sfn_state_machine" "reconciliation" {
+  name     = "${local.name_prefix}-reconciliation"
+  role_arn = aws_iam_role.reconciliation_state_machine.arn
+
+  definition = jsonencode({
+    Comment = "Run reconciliation rules for one accession number."
+    StartAt = "ReconcileAccession"
+    States = {
+      ReconcileAccession = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = aws_lambda_function.reconciliation.arn
+          "Payload.$"  = "$"
+        }
+        OutputPath = "$.Payload"
+        End        = true
+      }
+    }
+  })
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Phase       = "5"
+  }
+}
+
 resource "aws_iam_role" "processor_lambda" {
   name = "${local.name_prefix}-processor-lambda-role"
 
@@ -373,6 +614,13 @@ resource "aws_iam_role_policy" "processor_lambda" {
           aws_dynamodb_table.exam_system_state.arn,
           aws_dynamodb_table.event_history.arn
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "states:StartExecution"
+        ]
+        Resource = aws_sfn_state_machine.reconciliation.arn
       }
     ]
   })
@@ -401,9 +649,10 @@ resource "aws_lambda_function" "processor" {
 
   environment {
     variables = {
-      STATE_TABLE_NAME         = aws_dynamodb_table.exam_system_state.name
-      EVENT_HISTORY_TABLE_NAME = aws_dynamodb_table.event_history.name
-      ENVIRONMENT              = var.environment
+      STATE_TABLE_NAME                 = aws_dynamodb_table.exam_system_state.name
+      EVENT_HISTORY_TABLE_NAME         = aws_dynamodb_table.event_history.name
+      RECONCILIATION_STATE_MACHINE_ARN = aws_sfn_state_machine.reconciliation.arn
+      ENVIRONMENT                      = var.environment
     }
   }
 

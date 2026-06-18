@@ -10,9 +10,11 @@ from botocore.exceptions import ClientError
 
 
 dynamodb = boto3.resource("dynamodb")
+sfn_client = boto3.client("stepfunctions")
 
 STATE_TABLE_NAME = os.environ["STATE_TABLE_NAME"]
 EVENT_HISTORY_TABLE_NAME = os.environ["EVENT_HISTORY_TABLE_NAME"]
+RECONCILIATION_STATE_MACHINE_ARN = os.environ["RECONCILIATION_STATE_MACHINE_ARN"]
 
 state_table = dynamodb.Table(STATE_TABLE_NAME)
 event_history_table = dynamodb.Table(EVENT_HISTORY_TABLE_NAME)
@@ -40,6 +42,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
             normalized_event = _parse_sqs_record(record)
             state_updated = _write_current_state(normalized_event)
             _write_event_history(normalized_event)
+            reconciliation_execution_arn = _start_reconciliation_workflow(
+                normalized_event,
+                request_id,
+            )
 
             print(
                 json.dumps(
@@ -51,6 +57,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, list[dict[s
                         "accessionNumber": normalized_event["accessionNumber"],
                         "sourceSystem": normalized_event["sourceSystem"],
                         "stateUpdated": state_updated,
+                        "reconciliationExecutionArn": reconciliation_execution_arn,
                     }
                 )
             )
@@ -140,6 +147,21 @@ def _write_event_history(event: dict[str, Any]) -> None:
             "processedAt": _now_iso(),
         }
     )
+
+
+def _start_reconciliation_workflow(event: dict[str, Any], request_id: str) -> str:
+    response = sfn_client.start_execution(
+        stateMachineArn=RECONCILIATION_STATE_MACHINE_ARN,
+        input=json.dumps(
+            {
+                "accessionNumber": event["accessionNumber"],
+                "triggeringEventId": event["eventId"],
+                "triggeringSourceSystem": event["sourceSystem"],
+                "processorRequestId": request_id,
+            }
+        ),
+    )
+    return str(response["executionArn"])
 
 
 def _dict_or_empty(value: Any) -> dict[str, Any]:

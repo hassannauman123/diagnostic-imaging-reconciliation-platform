@@ -42,3 +42,23 @@ output "event_history_table_name" {
   description = "DynamoDB table storing normalized event history by accession number."
   value       = aws_dynamodb_table.event_history.name
 }
+
+output "reconciliation_incidents_table_name" {
+  description = "DynamoDB table storing reconciliation incidents."
+  value       = aws_dynamodb_table.reconciliation_incidents.name
+}
+
+output "reconciliation_lambda_name" {
+  description = "Name of the Phase 5 reconciliation Lambda function."
+  value       = aws_lambda_function.reconciliation.function_name
+}
+
+output "reconciliation_state_machine_arn" {
+  description = "Step Functions state machine ARN for accession reconciliation."
+  value       = aws_sfn_state_machine.reconciliation.arn
+}
+
+output "reconciliation_alerts_topic_arn" {
+  description = "SNS topic ARN for high-severity reconciliation alerts."
+  value       = aws_sns_topic.reconciliation_alerts.arn
+}
