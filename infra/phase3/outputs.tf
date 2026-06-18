@@ -28,3 +28,17 @@ output "ingest_lambda_name" {
   value       = aws_lambda_function.ingest.function_name
 }
 
+output "processor_lambda_name" {
+  description = "Name of the Phase 4 processor Lambda function."
+  value       = aws_lambda_function.processor.function_name
+}
+
+output "exam_system_state_table_name" {
+  description = "DynamoDB table storing latest state by accession number and source system."
+  value       = aws_dynamodb_table.exam_system_state.name
+}
+
+output "event_history_table_name" {
+  description = "DynamoDB table storing normalized event history by accession number."
+  value       = aws_dynamodb_table.event_history.name
+}

@@ -181,6 +181,43 @@ Detailed instructions are in `docs/phase-3-aws-ingestion.md`.
 
 Cost guardrails and a cost-focused architecture diagram are in `docs/phase-3-cost-guardrails.md`.
 
+## Phase 4 AWS Processing and DynamoDB
+
+Phase 4 adds cloud-side processing after ingestion.
+
+The SQS processing queue now invokes a processor Lambda. The processor writes:
+
+- latest accession/source-system state to DynamoDB `ExamSystemState`
+- normalized event history to DynamoDB `EventHistory`
+
+Deploy from the same Terraform folder:
+
+```bash
+cd infra/phase3
+terraform plan
+terraform apply
+```
+
+After deployment, post a valid event:
+
+```bash
+export EVENTS_ENDPOINT="$(terraform -chdir=infra/phase3 output -raw events_endpoint)"
+
+curl -X POST "$EVENTS_ENDPOINT" \
+  -H "Content-Type: application/json" \
+  --data @samples/ris-order-created.json
+```
+
+Then check DynamoDB:
+
+```bash
+aws dynamodb get-item \
+  --table-name "$(terraform -chdir=infra/phase3 output -raw exam_system_state_table_name)" \
+  --key '{"accessionNumber":{"S":"ACC-10001"},"sourceSystem":{"S":"RIS"}}'
+```
+
+Detailed instructions are in `docs/phase-4-aws-processing-dynamodb.md`.
+
 ## Privacy and Compliance Boundary
 
 This is a portfolio and learning project. It is healthcare-inspired, not a production healthcare system.
@@ -243,6 +280,6 @@ The project intentionally uses synthetic data only. It does not claim PHIA, HIPA
 
 ## Status
 
-Current phase: **Phase 3 AWS ingestion layer ready for deployment**.
+Current phase: **Phase 4 AWS processing and DynamoDB implementation**.
 
-Next planned phase: **Phase 4 AWS processing and DynamoDB**, after Phase 3 is deployed and verified.
+Next planned phase: **Phase 5 AWS reconciliation workflow**, after Phase 4 is deployed and verified.

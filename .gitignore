@@ -15,7 +15,7 @@ dist/
 *.tfstate
 *.tfstate.*
 *.tfplan
-infra/phase3/ingest_lambda.zip
+infra/phase3/*_lambda.zip
 
 # OS
 .DS_Store

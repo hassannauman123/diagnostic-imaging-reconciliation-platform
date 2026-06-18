@@ -112,6 +112,16 @@ data "archive_file" "ingest_lambda" {
   }
 }
 
+data "archive_file" "processor_lambda" {
+  type        = "zip"
+  output_path = "${path.module}/processor_lambda.zip"
+
+  source {
+    filename = "handler.py"
+    content  = file("${path.module}/../../src/aws/processor_lambda/handler.py")
+  }
+}
+
 resource "aws_iam_role" "ingest_lambda" {
   name = "${local.name_prefix}-ingest-lambda-role"
 
@@ -253,6 +263,167 @@ resource "aws_apigatewayv2_stage" "default" {
     Environment = var.environment
     Phase       = "3"
   }
+}
+
+resource "aws_dynamodb_table" "exam_system_state" {
+  name         = "${local.name_prefix}-exam-system-state"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "accessionNumber"
+  range_key    = "sourceSystem"
+
+  attribute {
+    name = "accessionNumber"
+    type = "S"
+  }
+
+  attribute {
+    name = "sourceSystem"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = false
+  }
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Phase       = "4"
+  }
+}
+
+resource "aws_dynamodb_table" "event_history" {
+  name         = "${local.name_prefix}-event-history"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "accessionNumber"
+  range_key    = "eventKey"
+
+  attribute {
+    name = "accessionNumber"
+    type = "S"
+  }
+
+  attribute {
+    name = "eventKey"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = false
+  }
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Phase       = "4"
+  }
+}
+
+resource "aws_iam_role" "processor_lambda" {
+  name = "${local.name_prefix}-processor-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "processor_lambda" {
+  name = "${local.name_prefix}-processor-lambda-policy"
+  role = aws_iam_role.processor_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "${aws_cloudwatch_log_group.processor_lambda.arn}:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:ChangeMessageVisibility"
+        ]
+        Resource = aws_sqs_queue.processing.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:GetItem",
+          "dynamodb:Query"
+        ]
+        Resource = [
+          aws_dynamodb_table.exam_system_state.arn,
+          aws_dynamodb_table.event_history.arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_cloudwatch_log_group" "processor_lambda" {
+  name              = "/aws/lambda/${local.name_prefix}-processor"
+  retention_in_days = var.log_retention_days
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Phase       = "4"
+  }
+}
+
+resource "aws_lambda_function" "processor" {
+  function_name    = "${local.name_prefix}-processor"
+  role             = aws_iam_role.processor_lambda.arn
+  handler          = "handler.lambda_handler"
+  runtime          = "python3.11"
+  filename         = data.archive_file.processor_lambda.output_path
+  source_code_hash = data.archive_file.processor_lambda.output_base64sha256
+  timeout          = 10
+  memory_size      = 128
+
+  environment {
+    variables = {
+      STATE_TABLE_NAME         = aws_dynamodb_table.exam_system_state.name
+      EVENT_HISTORY_TABLE_NAME = aws_dynamodb_table.event_history.name
+      ENVIRONMENT              = var.environment
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy.processor_lambda,
+    aws_cloudwatch_log_group.processor_lambda
+  ]
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Phase       = "4"
+  }
+}
+
+resource "aws_lambda_event_source_mapping" "processing_queue_to_processor" {
+  event_source_arn        = aws_sqs_queue.processing.arn
+  function_name           = aws_lambda_function.processor.arn
+  batch_size              = 5
+  function_response_types = ["ReportBatchItemFailures"]
 }
 
 resource "aws_lambda_permission" "allow_api_gateway" {
